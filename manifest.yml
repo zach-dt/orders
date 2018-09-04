@@ -4,4 +4,4 @@ applications:
   memory: 1G
   instances: 1
   docker:
-    image: jbraeuer/orders
+    image: DOCKER-HUB-ACCOUNT/orders
