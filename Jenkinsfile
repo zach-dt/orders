@@ -48,7 +48,7 @@ pipeline {
             sh "jx step git credentials"
             // so we can retrieve the version in later steps
             sh "echo \$(jx-release-version) > VERSION"
-            sh "mvn versions:set -DnewVersion=\$(cat VERSION)"
+            //sh "mvn versions:set -DnewVersion=\$(cat VERSION)"
           }
           dir ('./charts/orders') {
             container('maven') {
@@ -56,7 +56,9 @@ pipeline {
             }
           }
           container('maven') {
-            sh 'mvn clean deploy'
+            sh "mvn -DskipTests package"
+            sh ".scripts/build.jb.sh"
+            //sh 'mvn clean deploy'
 
             sh 'export VERSION=`cat VERSION` && skaffold build -f skaffold.yaml'
 
