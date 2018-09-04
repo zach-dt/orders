@@ -4,7 +4,7 @@ applications:
   memory: 1G
   instances: 1
   docker:
-    image: DOCKER-HUB-ACCOUNT/orders
+    image: DOCKER_HUB_ACCOUNT/orders
   env:
     DT_NODE_ID: APPNAME
     DT_CUSTOM_PROP: DEPLOYMENT_GRP_NAME=DTGRP DEPLOYMENT_COLOR=APPCOLOR
