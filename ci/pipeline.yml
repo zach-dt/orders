@@ -101,7 +101,7 @@ jobs:
 - name: build-orders
   plan:
   - get: git-orders
-    trigger: false
+    trigger: true
   - task: mvn-build
     config:
       platform: linux
@@ -133,7 +133,9 @@ jobs:
   public: true
   plan:
   - get: git-orders
-    trigger: false
+    trigger: true
+    passed:
+    - build-orders
   - put: orders-test-image
     params:
       build: git-orders/test
