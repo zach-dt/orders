@@ -13,7 +13,6 @@ groups:
 
 - name: init-dynatrace
   jobs: 
-  - init-dynatrace-user
   - init-dynatrace-orders
 
 resource_types:
