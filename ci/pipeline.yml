@@ -287,7 +287,7 @@ jobs:
   - task: get-current-app-color
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/current-app-get-info.yml
     params:
-      PCF_APP_SUFFIX: ((pcf-prod-user-suffix))
+      PCF_APP_SUFFIX: ((pcf-prod-orders-suffix))
       PCF_API: ((pcf-prod-api))
       PCF_ORG: ((pcf-prod-organization))
       PCF_USER: ((pcf-prod-deploy-username))
