@@ -42,23 +42,16 @@ resources:
     apitoken: ((apitoken))
     tenanthost: ((tenanthost))
 
-- name: s3-release-bucket
+- name: orders-release-bucket
   type: s3
   source:
     region_name: eu-west-1
-    bucket: orders-release-bucket
     versioned_file: releases/orders.jar
+    bucket: orders-release-bucket
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
 
 # Docker Images
-
-#- name: orders-image
-#  type: docker-image
-#  source:
-#    repository: ((docker-hub-username))/orders
-#    username: ((docker-hub-username))
-#    password: ((docker-hub-password))
 
 - name: orders-test-image
   type: docker-image
@@ -131,13 +124,8 @@ jobs:
           cd git-orders
           mvn -DskipTests package
           cd ..
-          cp git-orders/target/*.jar git-orders/docker/orders
-          cp -R git-orders/docker/orders/. "${output_dir}/"
-#  - put: orders-image
-#    params:
-#      build: workspace
-#      cache_tag: latest
-  - put: s3-release-bucket
+          cp git-orders/target/*.jar "${output_dir}/"
+  - put: orders-release-bucket
     params:
       file: workspace/orders.jar
 
@@ -147,8 +135,6 @@ jobs:
   plan:
   - get: git-orders
     trigger: true
-    passed:
-    - build-orders
   - put: orders-test-image
     params:
       build: git-orders/test
@@ -159,11 +145,12 @@ jobs:
   public: true
   plan:
   - get: git-orders
+    passed:
+      - build-orders
+  - get: orders-release-bucket
     trigger: true
     passed:
       - build-orders
-  - get: s3-release-bucket
-    trigger: false
   - get: git-pipeline
     trigger: false
   - task: prepare-app-manifest
@@ -171,16 +158,16 @@ jobs:
     params:
       PCF_APP_SUFFIX: ((pcf-stage-orders-suffix)) 
       DOCKER_HUB_ACCOUNT: ((docker-hub-username))
-      APP_REPO: git-orders  
+      APP_REPO: git-orders
   - put: dynatrace
     params:
       monspecserviceenvironment: orders/Staging
       pipelinetaskname: deploy-orders-to-prod
       deployversion: v1.0 
-      APP_REPO: git-orders      
+      APP_REPO: git-orders
   - put: pcf-stage
     params:
-      path: s3-release-bucket/releases/orders.jar
+      path: orders-release-bucket/orders.jar
       manifest: app-manifest-output/manifest.yml
          
 - name: execute-orders-functional-tests
@@ -214,9 +201,12 @@ jobs:
   public: true
   plan:
   - get: git-orders
-    trigger: true
     passed:
       - execute-orders-functional-tests
+  - get: orders-release-bucket
+    trigger: true
+    passed:
+      - build-orders
   - get: git-pipeline
     trigger: false      
   - task: get-current-app-color
@@ -243,6 +233,7 @@ jobs:
       APP_REPO: git-orders     
   - put: pcf-production
     params:
+      path: orders-release-bucket/orders.jar
       manifest: app-manifest-output/manifest.yml  
 
 - name: execute-orders-load-tests
@@ -261,7 +252,7 @@ jobs:
   - task: get-current-app-color
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/current-app-get-info.yml
     params:
-      PCF_APP_SUFFIX: ((pcf-prod-user-suffix))
+      PCF_APP_SUFFIX: ((pcf-prod-orders-suffix))
       PCF_API: ((pcf-prod-api))
       PCF_ORG: ((pcf-prod-organization))
       PCF_USER: ((pcf-prod-deploy-username))
