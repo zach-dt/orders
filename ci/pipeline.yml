@@ -41,14 +41,24 @@ resources:
   source:
     apitoken: ((apitoken))
     tenanthost: ((tenanthost))
+
+- name: s3-release-bucket
+  type: s3
+  source:
+    region_name: eu-west-1
+    bucket: orders-release-bucket
+    versioned_file: releases/orders.jar
+    access_key_id: ((s3-access-key-id))
+    secret_access_key: ((s3-secret-access-key))
+
 # Docker Images
 
-- name: orders-image
-  type: docker-image
-  source:
-    repository: ((docker-hub-username))/orders
-    username: ((docker-hub-username))
-    password: ((docker-hub-password))
+#- name: orders-image
+#  type: docker-image
+#  source:
+#    repository: ((docker-hub-username))/orders
+#    username: ((docker-hub-username))
+#    password: ((docker-hub-password))
 
 - name: orders-test-image
   type: docker-image
@@ -123,10 +133,13 @@ jobs:
           cd ..
           cp git-orders/target/*.jar git-orders/docker/orders
           cp -R git-orders/docker/orders/. "${output_dir}/"
-  - put: orders-image
+#  - put: orders-image
+#    params:
+#      build: workspace
+#      cache_tag: latest
+  - put: s3-release-bucket
     params:
-      build: workspace
-      cache_tag: latest
+      file: workspace/orders.jar
 
 - name: build-orders-test-image
   serial: true
@@ -146,33 +159,13 @@ jobs:
   public: true
   plan:
   - get: git-orders
-    #trigger: true
-    #passed:
-    #  - build-orders
+    trigger: true
+    passed:
+      - build-orders
+  - get: s3-release-bucket
+    trigger: false
   - get: git-pipeline
     trigger: false
-  - task: mvn-build
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source: {repository: maven, tag: 3.2-jdk-8}
-      inputs:
-      - name: git-orders
-      outputs:
-      - name: workspace
-      run:
-        path: /bin/sh
-        args:
-        - -exc
-        - |
-          output_dir=workspace
-          cd git-orders
-          mvn -DskipTests package
-          cd ..
-          cp git-orders/target/*.jar git-orders/docker/orders
-          cp -R git-orders/docker/orders/. "${output_dir}/"
-          ls -lsa "${output_dir}/"
   - task: prepare-app-manifest
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/app-manifest-prep.yml
     params:
@@ -187,6 +180,7 @@ jobs:
       APP_REPO: git-orders      
   - put: pcf-stage
     params:
+      path: s3-release-bucket/releases/orders.jar
       manifest: app-manifest-output/manifest.yml
          
 - name: execute-orders-functional-tests
