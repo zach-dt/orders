@@ -146,11 +146,32 @@ jobs:
   public: true
   plan:
   - get: git-orders
-    trigger: true
-    passed:
-      - build-orders
+    #trigger: true
+    #passed:
+    #  - build-orders
   - get: git-pipeline
-    trigger: false      
+    trigger: false
+  - task: mvn-build
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {repository: maven, tag: 3.2-jdk-8}
+      inputs:
+      - name: git-orders
+      outputs:
+      - name: workspace
+      run:
+        path: /bin/sh
+        args:
+        - -exc
+        - |
+          output_dir=workspace
+          cd git-orders
+          mvn -DskipTests package
+          cd ..
+          cp git-orders/target/*.jar git-orders/docker/orders
+          cp -R git-orders/docker/orders/. "${output_dir}/" 
   - task: prepare-app-manifest
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/app-manifest-prep.yml
     params:
@@ -162,10 +183,10 @@ jobs:
       monspecserviceenvironment: orders/Staging
       pipelinetaskname: deploy-orders-to-prod
       deployversion: v1.0 
-      APP_REPO: git-orders            
+      APP_REPO: git-orders      
   - put: pcf-stage
     params:
-      manifest: app-manifest-output/manifest.yml  
+      manifest: app-manifest-output/manifest.yml       
 
 - name: execute-orders-functional-tests
   serial: true
