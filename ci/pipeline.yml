@@ -171,7 +171,8 @@ jobs:
           mvn -DskipTests package
           cd ..
           cp git-orders/target/*.jar git-orders/docker/orders
-          cp -R git-orders/docker/orders/. "${output_dir}/" 
+          cp -R git-orders/docker/orders/. "${output_dir}/"
+          ls -lsa "${output_dir}/"
   - task: prepare-app-manifest
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/app-manifest-prep.yml
     params:
@@ -186,7 +187,6 @@ jobs:
       APP_REPO: git-orders      
   - put: pcf-stage
     params:
-      path: ./workspace/app.jar
       manifest: app-manifest-output/manifest.yml
          
 - name: execute-orders-functional-tests
