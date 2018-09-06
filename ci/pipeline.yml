@@ -186,7 +186,7 @@ jobs:
       APP_REPO: git-orders      
   - put: pcf-stage
     params:
-      path: workspace
+      path: ./workspace/app.jar
       manifest: app-manifest-output/manifest.yml
          
 - name: execute-orders-functional-tests
