@@ -46,7 +46,7 @@ resources:
   type: s3
   source:
     region_name: eu-west-1
-    versioned_file: releases/orders.jar
+    versioned_file: orders/orders.jar
     bucket: orders-release-bucket
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
