@@ -160,13 +160,13 @@ jobs:
       inputs:
       - name: git-orders
       outputs:
-      - name: workspace
+      - name: app-manifest-output
       run:
         path: /bin/sh
         args:
         - -exc
         - |
-          output_dir=workspace
+          output_dir=app-manifest-output
           cd git-orders
           mvn -DskipTests package
           cd ..
@@ -187,8 +187,7 @@ jobs:
   - put: pcf-stage
     params:
       manifest: app-manifest-output/manifest.yml
-      path: workspace/      
-
+         
 - name: execute-orders-functional-tests
   serial: true
   public: true
