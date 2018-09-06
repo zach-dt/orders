@@ -145,10 +145,10 @@ jobs:
   public: true
   plan:
   - get: git-orders
+    trigger: true
     passed:
       - build-orders
   - get: orders-release-bucket
-    trigger: true
     passed:
       - build-orders
   - get: git-pipeline
@@ -201,10 +201,10 @@ jobs:
   public: true
   plan:
   - get: git-orders
+    trigger: true
     passed:
       - execute-orders-functional-tests
   - get: orders-release-bucket
-    trigger: true
     passed:
       - build-orders
   - get: git-pipeline
