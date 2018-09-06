@@ -3,7 +3,7 @@ applications:
 - name: APPNAME
   memory: 1G
   instances: 1
-  path: ./workspace/app.jar
+  path: app.jar
   env:
     DT_NODE_ID: APPNAME
     DT_CUSTOM_PROP: DEPLOYMENT_GRP_NME=DTGRP DEPLOYMENT_COLOR=APPCOLOR
