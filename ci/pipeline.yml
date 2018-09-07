@@ -5,7 +5,7 @@ groups:
   - build-orders
   - build-orders-test-image
   - deploy-orders-to-stage
-  - execute-orders-functional-tests
+  - health-check
   - deploy-orders-to-prod
   - execute-orders-load-tests
   - validate-orders-load-test
@@ -23,32 +23,38 @@ resource_types:
 
 resources:
 
-# GitHub Repositories
 - name: git-pipeline
   type: git
   source:
     branch: master
-    uri: https://github.com/acm-workshop/sockshop.git
+    uri: https://github.com/acm-workshop-concourse/sockshop.git
+
+- name: git-jmeter-as-container
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/acm-workshop/jmeter-as-container.git
 
 - name: git-orders
   type: git
   source:
     branch: master
-    uri: https://github.com/acm-workshop/orders.git
+    uri: https://github.com/acm-workshop-concourse/orders.git
 
 - name: dynatrace
   type: dynatrace-resource
   source:
     apitoken: ((apitoken))
     tenanthost: ((tenanthost))
-# Docker Images
 
-- name: orders-image
-  type: docker-image
+- name: orders-release-bucket
+  type: s3
   source:
-    repository: ((docker-hub-username))/orders
-    username: ((docker-hub-username))
-    password: ((docker-hub-password))
+    region_name: eu-west-1
+    regexp: orders/orders-(.*).jar
+    bucket: orders-release-bucket
+    access_key_id: ((s3-access-key-id))
+    secret_access_key: ((s3-secret-access-key))
 
 - name: orders-test-image
   type: docker-image
@@ -56,6 +62,17 @@ resources:
     repository: ((docker-hub-username))/orders-test
     username: ((docker-hub-username))
     password: ((docker-hub-password))
+
+- name: version
+  type: semver
+  source:
+    driver: s3
+    initial_version: 1.4.5
+    region_name: eu-west-1
+    access_key_id: ((s3-access-key-id))
+    secret_access_key: ((s3-secret-access-key))
+    bucket: orders-release-bucket
+    key: orders/version
 
 # PCF Environments
 
@@ -102,6 +119,8 @@ jobs:
   plan:
   - get: git-orders
     trigger: true
+  - get: version
+    params: { bump: patch }
   - task: mvn-build
     config:
       platform: linux
@@ -110,6 +129,7 @@ jobs:
         source: {repository: maven, tag: 3.2-jdk-8}
       inputs:
       - name: git-orders
+      - name: version
       outputs:
       - name: workspace
       run:
@@ -119,14 +139,13 @@ jobs:
         - |
           output_dir=workspace
           cd git-orders
+          #sed -i "s/<version>1.4.4.RELEASE</version>/<version>$(cat version/number)</version>/" ./pom.xml
           mvn -DskipTests package
           cd ..
-          cp git-orders/target/*.jar git-orders/docker/orders
-          cp -R git-orders/docker/orders/. "${output_dir}/"
-  - put: orders-image
-    params:
-      build: workspace
-      cache_tag: latest
+          mv git-orders/target/orders.jar git-orders/target/orders-$(cat version/number).jar
+          cp git-orders/target/orders-*.jar "${output_dir}/"
+  - put: orders-release-bucket
+    params: { file: workspace/orders-*.jar }
 
 - name: build-orders-test-image
   serial: true
@@ -134,8 +153,6 @@ jobs:
   plan:
   - get: git-orders
     trigger: true
-    passed:
-    - build-orders
   - put: orders-test-image
     params:
       build: git-orders/test
@@ -149,25 +166,29 @@ jobs:
     trigger: true
     passed:
       - build-orders
+  - get: orders-release-bucket
+    passed:
+      - build-orders
   - get: git-pipeline
-    trigger: false      
+    trigger: false
   - task: prepare-app-manifest
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/app-manifest-prep.yml
     params:
       PCF_APP_SUFFIX: ((pcf-stage-orders-suffix)) 
       DOCKER_HUB_ACCOUNT: ((docker-hub-username))
-      APP_REPO: git-orders  
+      APP_REPO: git-orders
   - put: dynatrace
     params:
       monspecserviceenvironment: orders/Staging
       pipelinetaskname: deploy-orders-to-prod
       deployversion: v1.0 
-      APP_REPO: git-orders            
+      APP_REPO: git-orders
   - put: pcf-stage
     params:
-      manifest: app-manifest-output/manifest.yml  
-
-- name: execute-orders-functional-tests
+      path: orders-release-bucket/orders-*.jar
+      manifest: app-manifest-output/manifest.yml
+         
+- name: health-check
   serial: true
   public: true
   plan:
@@ -179,20 +200,22 @@ jobs:
     - get: orders-test-image
       passed:
         - build-orders-test-image
-  - task: run-functional-tests
+    - get: git-jmeter-as-container
+    - get: git-pipeline
+  - task: run-load-tests
     image: orders-test-image
-    config:
-      platform: linux
-      inputs:
-      - name: git-orders
-      run:
-        dir: git-orders
-        path: /bin/sh
-        args:
-        - -exc
-        - |
-          mvn -q test
-          
+    file: git-pipeline/deploy/cloud-foundry/ci/tasks/health-test.yml
+    params:
+      APP_REPO: git-jmeter-as-container
+      FUNC_VALIDATION: yes
+      PRODUCTION: false
+      SCRIPT_NAME: basiccheck.jmx
+      PCF_APP_SUFFIX: ((pcf-stage-orders-suffix))
+      PCF_APP_DOMAIN: ((pcf-prod-app-domain))
+      DT_LTN: HealthCheck
+      VUCount: 1
+      LoopCount: 1
+
 - name: deploy-orders-to-prod
   serial: true
   public: true
@@ -200,7 +223,10 @@ jobs:
   - get: git-orders
     trigger: true
     passed:
-      - execute-orders-functional-tests
+      - health-check
+  - get: orders-release-bucket
+    passed:
+      - build-orders
   - get: git-pipeline
     trigger: false      
   - task: get-current-app-color
@@ -227,6 +253,7 @@ jobs:
       APP_REPO: git-orders     
   - put: pcf-production
     params:
+      path: orders-release-bucket/orders-*.jar
       manifest: app-manifest-output/manifest.yml  
 
 - name: execute-orders-load-tests
@@ -245,7 +272,7 @@ jobs:
   - task: get-current-app-color
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/current-app-get-info.yml
     params:
-      PCF_APP_SUFFIX: ((pcf-prod-user-suffix))
+      PCF_APP_SUFFIX: ((pcf-prod-orders-suffix))
       PCF_API: ((pcf-prod-api))
       PCF_ORG: ((pcf-prod-organization))
       PCF_USER: ((pcf-prod-deploy-username))
@@ -280,7 +307,7 @@ jobs:
   - task: get-current-app-color
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/current-app-get-info.yml
     params:
-      PCF_APP_SUFFIX: ((pcf-prod-user-suffix))
+      PCF_APP_SUFFIX: ((pcf-prod-orders-suffix))
       PCF_API: ((pcf-prod-api))
       PCF_ORG: ((pcf-prod-organization))
       PCF_USER: ((pcf-prod-deploy-username))
@@ -302,6 +329,7 @@ jobs:
     trigger: true
     passed:
       - validate-orders-load-test
+  - get: version
   - get: git-pipeline
     trigger: false      
   - task: get-current-app-color
@@ -322,4 +350,6 @@ jobs:
       PCF_USER: ((pcf-prod-deploy-username))
       PCF_PWD: ((pcf-prod-deploy-password))
       PCF_SPACE: ((pcf-prod-space))
-      PCF_APP_DOMAIN: ((pcf-prod-app-domain))    
+      PCF_APP_DOMAIN: ((pcf-prod-app-domain))
+  - put: version
+    params: { file: version/number }
