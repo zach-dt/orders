@@ -5,7 +5,7 @@ groups:
   - build-orders
   - build-orders-test-image
   - deploy-orders-to-stage
-  - execute-orders-functional-tests
+  - health-check
   - deploy-orders-to-prod
   - execute-orders-load-tests
   - validate-orders-load-test
@@ -29,6 +29,12 @@ resources:
     branch: master
     uri: https://github.com/acm-workshop-concourse/sockshop.git
 
+- name: git-jmeter-as-container
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/acm-workshop/jmeter-as-container.git
+
 - name: git-orders
   type: git
   source:
@@ -45,7 +51,7 @@ resources:
   type: s3
   source:
     region_name: eu-west-1
-    versioned_file: orders/orders.jar
+    regexp: orders/orders-(.*).jar
     bucket: orders-release-bucket
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
@@ -66,7 +72,7 @@ resources:
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
     bucket: orders-release-bucket
-    key: concourse-tutorial/version
+    key: orders/version
 
 # PCF Environments
 
@@ -131,18 +137,15 @@ jobs:
         args:
         - -exc
         - |
-          cat version/number
           output_dir=workspace
           cd git-orders
           #sed -i "s/<version>1.4.4.RELEASE</version>/<version>$(cat version/number)</version>/" ./pom.xml
           mvn -DskipTests package
           cd ..
-          mv orders.jar orders-$(cat version/number).jar
-          cp git-orders/target/*.jar "${output_dir}/"
+          mv git-orders/target/orders.jar git-orders/target/orders-$(cat version/number).jar
+          cp git-orders/target/orders-*.jar "${output_dir}/"
   - put: orders-release-bucket
-    params: { file: workspace/orders.jar }
-  - put: version
-    params: { file: version/number }
+    params: { file: workspace/orders-*.jar }
 
 - name: build-orders-test-image
   serial: true
@@ -182,10 +185,10 @@ jobs:
       APP_REPO: git-orders
   - put: pcf-stage
     params:
-      path: orders-release-bucket/orders.jar
+      path: orders-release-bucket/orders-*.jar
       manifest: app-manifest-output/manifest.yml
          
-- name: execute-orders-functional-tests
+- name: health-check
   serial: true
   public: true
   plan:
@@ -197,20 +200,22 @@ jobs:
     - get: orders-test-image
       passed:
         - build-orders-test-image
-  - task: run-functional-tests
+    - get: git-jmeter-as-container
+  - task: run-load-tests
     image: orders-test-image
-    config:
-      platform: linux
-      inputs:
-      - name: git-orders
-      run:
-        dir: git-orders
-        path: /bin/sh
-        args:
-        - -exc
-        - |
-          mvn -q test
-          
+    file: git-pipeline/deploy/cloud-foundry/ci/tasks/load-tests.yml
+    params:
+      APP_REPO: git-jmeter-as-container
+      FUNC_VALIDATION: yes
+      SCRIPT_NAME: basiccheck.jmx
+      PRODUCTION: true
+      PCF_APP_SUFFIX: ((pcf-prod-stage-suffix))
+      PCF_APP_DOMAIN: ((pcf-prod-app-domain))
+      SERVER_URL: ((pcf-prod-app-domain))
+      DT_LTN: HealthCheck
+      VUCount: 1
+      LoopCount: 1 
+
 - name: deploy-orders-to-prod
   serial: true
   public: true
@@ -218,7 +223,7 @@ jobs:
   - get: git-orders
     trigger: true
     passed:
-      - execute-orders-functional-tests
+      - health-check
   - get: orders-release-bucket
     passed:
       - build-orders
@@ -248,7 +253,7 @@ jobs:
       APP_REPO: git-orders     
   - put: pcf-production
     params:
-      path: orders-release-bucket/orders.jar
+      path: orders-release-bucket/orders-*.jar
       manifest: app-manifest-output/manifest.yml  
 
 - name: execute-orders-load-tests
@@ -324,6 +329,7 @@ jobs:
     trigger: true
     passed:
       - validate-orders-load-test
+  - get: version
   - get: git-pipeline
     trigger: false      
   - task: get-current-app-color
@@ -344,4 +350,6 @@ jobs:
       PCF_USER: ((pcf-prod-deploy-username))
       PCF_PWD: ((pcf-prod-deploy-password))
       PCF_SPACE: ((pcf-prod-space))
-      PCF_APP_DOMAIN: ((pcf-prod-app-domain))    
+      PCF_APP_DOMAIN: ((pcf-prod-app-domain))
+  - put: version
+    params: { file: version/number }
