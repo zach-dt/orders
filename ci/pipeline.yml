@@ -61,7 +61,7 @@ resources:
   type: semver
   source:
     driver: s3
-    initial_version: 0.0.1
+    initial_version: 1.4.5
     region_name: eu-west-1
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
@@ -134,14 +134,15 @@ jobs:
           cat version/number
           output_dir=workspace
           cd git-orders
+          #sed -i "s/<version>1.4.4.RELEASE</version>/<version>$(cat version/number)</version>/" ./pom.xml
           mvn -DskipTests package
           cd ..
+          mv orders.jar orders-$(cat version/number).jar
           cp git-orders/target/*.jar "${output_dir}/"
   - put: orders-release-bucket
-    params:
-      file: workspace/orders.jar
+    params: { file: workspace/orders.jar }
   - put: version
-    params: {file: version/number}
+    params: { file: version/number }
 
 - name: build-orders-test-image
   serial: true
