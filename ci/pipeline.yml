@@ -201,20 +201,20 @@ jobs:
       passed:
         - build-orders-test-image
     - get: git-jmeter-as-container
+    - get: git-pipeline
   - task: run-load-tests
     image: orders-test-image
-    file: git-pipeline/deploy/cloud-foundry/ci/tasks/load-tests.yml
+    file: git-pipeline/deploy/cloud-foundry/ci/tasks/health-test.yml
     params:
       APP_REPO: git-jmeter-as-container
       FUNC_VALIDATION: yes
+      PRODUCTION: false
       SCRIPT_NAME: basiccheck.jmx
-      PRODUCTION: true
-      PCF_APP_SUFFIX: ((pcf-prod-stage-suffix))
+      PCF_APP_SUFFIX: ((pcf-stage-orders-suffix))
       PCF_APP_DOMAIN: ((pcf-prod-app-domain))
-      SERVER_URL: ((pcf-prod-app-domain))
       DT_LTN: HealthCheck
       VUCount: 1
-      LoopCount: 1 
+      LoopCount: 1
 
 - name: deploy-orders-to-prod
   serial: true
