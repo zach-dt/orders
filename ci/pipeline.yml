@@ -23,7 +23,6 @@ resource_types:
 
 resources:
 
-# GitHub Repositories
 - name: git-pipeline
   type: git
   source:
@@ -51,14 +50,23 @@ resources:
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
 
-# Docker Images
-
 - name: orders-test-image
   type: docker-image
   source:
     repository: ((docker-hub-username))/orders-test
     username: ((docker-hub-username))
     password: ((docker-hub-password))
+
+- name: version
+  type: semver
+  source:
+    driver: s3
+    initial_version: 0.0.1
+    region_name: eu-west-1
+    access_key_id: ((s3-access-key-id))
+    secret_access_key: ((s3-secret-access-key))
+    bucket: orders-release-bucket
+    key: concourse-tutorial/version
 
 # PCF Environments
 
@@ -105,6 +113,8 @@ jobs:
   plan:
   - get: git-orders
     trigger: true
+  - get: version
+    params: { bump: patch }
   - task: mvn-build
     config:
       platform: linux
@@ -113,6 +123,7 @@ jobs:
         source: {repository: maven, tag: 3.2-jdk-8}
       inputs:
       - name: git-orders
+      - name: version
       outputs:
       - name: workspace
       run:
@@ -120,6 +131,7 @@ jobs:
         args:
         - -exc
         - |
+          cat version/number
           output_dir=workspace
           cd git-orders
           mvn -DskipTests package
@@ -128,6 +140,8 @@ jobs:
   - put: orders-release-bucket
     params:
       file: workspace/orders.jar
+  - put: version
+    params: {file: version/number}
 
 - name: build-orders-test-image
   serial: true

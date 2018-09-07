@@ -7,6 +7,7 @@
     <groupId>works.weave.microservices-demo</groupId>
     <artifactId>orders</artifactId>
     <packaging>jar</packaging>
+    <version>0.0.1</version>
 
     <name>orders</name>
     <description>Orders service for microservices-demo application</description>
