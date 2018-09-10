@@ -137,7 +137,8 @@ jobs:
           mv git-orders/target/orders.jar git-orders/target/orders-$(cat version/number).jar
           cp git-orders/target/orders-*.jar "${output_dir}/"
   - put: orders-release-bucket
-    params: { file: workspace/orders-*.jar }
+    params: 
+      file: workspace/orders-*.jar
 
 - name: deploy-orders-to-stage
   serial: true
