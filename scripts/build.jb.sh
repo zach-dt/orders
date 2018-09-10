@@ -13,6 +13,6 @@ echo $CODE_DIR
 cp -r $CODE_DIR/docker $CODE_DIR/target/docker/
 cp -r $CODE_DIR/target/*.jar $CODE_DIR/target/docker/${IMAGE}
 
-docker build -t jbraeuer/orders:latest $CODE_DIR/target/docker/${IMAGE};
+#docker build -t jbraeuer/orders:latest $CODE_DIR/target/docker/${IMAGE};
 
-docker push jbraeuer/orders:latest
+#docker push jbraeuer/orders:latest
