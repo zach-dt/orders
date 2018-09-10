@@ -3,7 +3,6 @@ groups:
 - name: orders-jobs
   jobs:
   - build-orders
-  - build-orders-test-image
   - deploy-orders-to-stage
   - health-check
   - deploy-orders-to-prod
@@ -55,13 +54,6 @@ resources:
     bucket: orders-release-bucket
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
-
-- name: orders-test-image
-  type: docker-image
-  source:
-    repository: ((docker-hub-username))/orders-test
-    username: ((docker-hub-username))
-    password: ((docker-hub-password))
 
 - name: version
   type: semver
@@ -145,18 +137,8 @@ jobs:
           mv git-orders/target/orders.jar git-orders/target/orders-$(cat version/number).jar
           cp git-orders/target/orders-*.jar "${output_dir}/"
   - put: orders-release-bucket
-    params: { file: workspace/orders-*.jar }
-
-- name: build-orders-test-image
-  serial: true
-  public: true
-  plan:
-  - get: git-orders
-    trigger: true
-  - put: orders-test-image
-    params:
-      build: git-orders/test
-      cache_tag: latest
+    params: 
+      file: workspace/orders-*.jar
 
 - name: deploy-orders-to-stage
   serial: true
@@ -197,13 +179,9 @@ jobs:
       trigger: true
       passed:
         - deploy-orders-to-stage
-    - get: orders-test-image
-      passed:
-        - build-orders-test-image
     - get: git-jmeter-as-container
     - get: git-pipeline
   - task: run-load-tests
-    image: orders-test-image
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/health-test.yml
     params:
       APP_REPO: git-jmeter-as-container
@@ -265,9 +243,6 @@ jobs:
       trigger: true
       passed:
        - deploy-orders-to-prod
-    - get: orders-test-image
-      passed:
-        - build-orders-test-image
     - get: git-pipeline
   - task: get-current-app-color
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/current-app-get-info.yml
@@ -279,7 +254,6 @@ jobs:
       PCF_PWD: ((pcf-prod-deploy-password))
       PCF_SPACE: ((pcf-prod-space))           
   - task: run-load-tests
-    image: orders-test-image
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/load-tests.yml
     params:
       APP_REPO: git-orders
