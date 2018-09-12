@@ -51,7 +51,7 @@ resources:
   source:
     region_name: eu-west-1
     regexp: orders/orders-(.*).jar
-    bucket: orders-release-bucket
+    bucket: ((s3-bucket))
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
 
@@ -61,9 +61,9 @@ resources:
     driver: s3
     initial_version: 1.4.5
     region_name: eu-west-1
+    bucket: ((s3-bucket))
     access_key_id: ((s3-access-key-id))
     secret_access_key: ((s3-secret-access-key))
-    bucket: orders-release-bucket
     key: orders/version
 
 # PCF Environments
@@ -269,8 +269,6 @@ jobs:
       APP_REPO: git-orders            
 
 - name: validate-orders-load-test
-  serial: true
-  public: true
   plan:
   - get: git-orders
     trigger: true
@@ -296,14 +294,13 @@ jobs:
       APP_REPO: git-orders   
 
 - name: promote-new-version-orders
-  serial: true
-  public: true
   plan:
   - get: git-orders
     trigger: true
     passed:
       - validate-orders-load-test
   - get: version
+    params: { bump: patch }
   - get: git-pipeline
     trigger: false      
   - task: get-current-app-color
