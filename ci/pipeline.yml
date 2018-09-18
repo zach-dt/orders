@@ -129,6 +129,14 @@ jobs:
         args:
         - -exc
         - |
+          # Caching Maven
+          export ROOT_FOLDER=$( pwd )
+          M2_HOME="${HOME}/.m2"
+          M2_CACHE="${ROOT_FOLDER}/maven"
+          echo "Generating symbolic link for Maven cache"
+          ln -s "${M2_CACHE}" "${M2_HOME}"
+
+          # Build App
           output_dir=workspace
           cd git-orders
           #sed -i "s/<version>1.4.4.RELEASE</version>/<version>$(cat version/number)</version>/" ./pom.xml
@@ -136,6 +144,8 @@ jobs:
           cd ..
           mv git-orders/target/orders.jar git-orders/target/orders-$(cat version/number).jar
           cp git-orders/target/orders-*.jar "${output_dir}/"
+      caches:
+        - path: maven
   - put: orders-release-bucket
     params: 
       file: workspace/orders-*.jar
