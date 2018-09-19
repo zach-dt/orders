@@ -167,7 +167,6 @@ jobs:
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/app-manifest-prep.yml
     params:
       PCF_APP_SUFFIX: ((pcf-stage-orders-suffix)) 
-      DOCKER_HUB_ACCOUNT: ((docker-hub-username))
       APP_REPO: git-orders
   - put: dynatrace
     params:
@@ -230,7 +229,6 @@ jobs:
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/app-manifest-prep.yml
     params:
       PCF_APP_SUFFIX: ((pcf-prod-orders-suffix)) 
-      DOCKER_HUB_ACCOUNT: ((docker-hub-username))
       APP_REPO: git-orders
       PRODUCTION: true                 
   - put: dynatrace
