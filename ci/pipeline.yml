@@ -326,7 +326,7 @@ jobs:
   - get: git-orders
     trigger: true
     passed:
-      - validate-orders-load-test
+      - execute-orders-load-tests
   - get: version
     params: { bump: patch }
   - get: git-pipeline
