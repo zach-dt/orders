@@ -126,7 +126,7 @@ jobs:
   - get: git-orders
     trigger: true
   - get: version
-    params: { pre: rc }
+    params: { pre: build }
   - task: mvn-build
     config:
       platform: linux
