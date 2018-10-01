@@ -9,6 +9,7 @@ groups:
   - execute-orders-load-tests
   - validate-orders-load-test
   - promote-new-version-orders
+  - upload-orders-git-release
 
 - name: init-dynatrace
   jobs: 
@@ -22,6 +23,15 @@ resource_types:
 
 resources:
 
+#GitHub Release Repository
+- name: orders-release
+  type: github-release
+  source:
+    owner: acm-workshop-concourse
+    repository: orders
+    access_token: ((github-access-token))
+
+# GitHub Repositories
 - name: git-pipeline
   type: git
   source:
@@ -194,7 +204,7 @@ jobs:
         - deploy-orders-to-stage
     - get: git-jmeter-as-container
     - get: git-pipeline
-  - task: run-load-tests
+  - task: run-health-check
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/health-test.yml
     params:
       APP_REPO: git-jmeter-as-container
@@ -340,5 +350,28 @@ jobs:
       PCF_PWD: ((pcf-prod-deploy-password))
       PCF_SPACE: ((pcf-prod-space))
       PCF_APP_DOMAIN: ((pcf-prod-app-domain))
+
+- name: upload-orders-git-release
+  public: true
+  plan:
+  - aggregate:
+    - get: git-orders
+      trigger: true
+      passed: 
+        - promote-new-version-orders
+    - get: orders-release-bucket
+    - get: git-pipeline
+    - get: version
+      params: { pre: build }
+  - task: create-orders-release-info
+    file: git-pipeline/deploy/cloud-foundry/ci/tasks/prepare-release.yml
+    params:
+      APP_NAME: orders
+  - put: orders-release
+    params:
+      name: prepared-release/name
+      tag: prepared-release/tag
+      globs:
+      - orders-release-bucket/orders-*.jar
 #  - put: version
-#    params: { file: version/number }
+#    params: { file: version/number } 
