@@ -17,13 +17,13 @@ service:
 resources:
   limits:
     cpu: 500m
-    memory: 1024Mi
+    memory: 2048Mi
   requests:
     cpu: 400m
-    memory: 1024Mi
+    memory: 2048Mi
 probePath: /health
 livenessProbe:
-  initialDelaySeconds: 60
+  initialDelaySeconds: 120
   periodSeconds: 10
   successThreshold: 1
   timeoutSeconds: 1
