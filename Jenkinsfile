@@ -1,154 +1,132 @@
 pipeline {
-    agent {
-      label "jenkins-maven"
-    }
-    environment {
-      ORG               = 'acm-workshop'
-      APP_NAME          = 'orders'
-      CHARTMUSEUM_CREDS = credentials('jenkins-x-chartmuseum')
-    }
-    stages {
-      stage('CI Build and push snapshot') {
-        when {
-          branch 'PR-*'
-        }
-        environment {
-          PREVIEW_VERSION = "0.0.0-SNAPSHOT-$BRANCH_NAME-$BUILD_NUMBER"
-          PREVIEW_NAMESPACE = "$APP_NAME-$BRANCH_NAME".toLowerCase()
-          HELM_RELEASE = "$PREVIEW_NAMESPACE".toLowerCase()
-        }
-        steps {
-          container('maven') {
-            sh "mvn versions:set -DnewVersion=$PREVIEW_VERSION"
-            sh "mvn install"
-            sh 'export VERSION=$PREVIEW_VERSION && skaffold build -f skaffold.yaml'
-
-
-            sh "jx step post build --image $DOCKER_REGISTRY/$ORG/$APP_NAME:$PREVIEW_VERSION"
-          }
-
-          dir ('./charts/preview') {
-           container('maven') {
-             sh "make preview"
-             sh "jx preview --app $APP_NAME --dir ../.."
-           }
-          }
+  agent {
+    label 'maven'
+  }
+  environment {
+    APP_NAME = "orders"
+    ARTEFACT_ID = "sockshop/" + "${env.APP_NAME}"
+    VERSION = readFile 'version'
+    TAG = "10.31.240.247:5000/library/${env.ARTEFACT_ID}"
+    TAG_DEV = "${env.TAG}-${env.VERSION}-${env.BUILD_NUMBER}"
+    TAG_STAGING = "${env.TAG}-${env.VERSION}"
+  }
+  stages {
+    stage('Maven build') {
+      steps {
+        checkout scm
+        container('maven') {
+          sh 'mvn -B clean package'
         }
       }
-      stage('Build Release') {
-        when {
-          branch 'master'
-        }
-        steps {
-          container('maven') {
-            // ensure we're not on a detached head
-            sh "git checkout master"
-            sh "git config --global credential.helper store"
-
-            sh "jx step git credentials"
-            // so we can retrieve the version in later steps
-            sh "echo \$(jx-release-version) > VERSION"
-            //sh "mvn versions:set -DnewVersion=\$(cat VERSION)"
-          }
-          dir ('./charts/orders') {
-            container('maven') {
-              sh "make tag"
-            }
-          }
-          container('maven') {
-            sh "mvn -DskipTests package"
-            sh "./scripts/build.jb.sh"
-            //sh 'mvn clean deploy'
-
-            sh 'export VERSION=`cat VERSION` && skaffold build -f skaffold.yaml'
-
-
-            sh "jx step post build --image $DOCKER_REGISTRY/$ORG/$APP_NAME:\$(cat VERSION)"
-          }
-        }
-      }
-      stage('Promote to Staging') {
-        when {
-          branch 'master'
-        }
-        steps {
-          dir ('./charts/orders') {
-            container('maven') {
-              sh 'jx step changelog --version v\$(cat ../../VERSION)'
-
-              // release the helm chart
-              sh 'jx step helm release'
-
-              // promote through all 'Auto' promotion Environments
-              sh 'jx promote -b --env staging --timeout 1h --version \$(cat ../../VERSION) $APP_NAME'
-            }
-          }
-        }
-      }
-//      stage('Health Check Staging') {
-//        steps {
-//          build job: "${env.ORG}/jmeter-as-container/master", 
-//            parameters: [
-//              string(name: 'BUILD_JMETER', value: 'no'), 
-//              string(name: 'SCRIPT_NAME', value: 'basiccheck.jmx'), 
-//              string(name: 'SERVER_URL', value: "${env.APP_NAME}.jx-staging.35.233.18.9.nip.io"),
-//              string(name: 'SERVER_PORT', value: '80'),
-//              string(name: 'CHECK_PATH', value: '/health'),
-//              string(name: 'VUCount', value: '1'),
-//              string(name: 'LoopCount', value: '1'),
-//              string(name: 'ThinkTime', value: '250'),
-//              string(name: 'DT_LTN', value: "HealthCheck_${BUILD_NUMBER}"),
-//              string(name: 'FUNC_VALIDATION', value: 'yes'),
-//              string(name: 'AVG_RT_VALIDATION', value: '0')
-//            ]
-//        }
-//      }
-//      stage('Functional Check Staging') {
-//        steps {
-//          build job: "${env.ORG}/jmeter-as-container/master", 
-//            parameters: [
-//              string(name: 'BUILD_JMETER', value: 'no'), 
-//              string(name: 'SCRIPT_NAME', value: 'orders_basic.jmx'), 
-//              string(name: 'SERVER_URL', value: "${env.APP_NAME}.jx-staging.35.233.18.9.nip.io"),
-//              string(name: 'SERVER_PORT', value: '80'),
-//              string(name: 'CHECK_PATH', value: '/health'),
-//              string(name: 'VUCount', value: '1'),
-//              string(name: 'LoopCount', value: '1'),
-//              string(name: 'ThinkTime', value: '250'),
-//              string(name: 'DT_LTN', value: "FuncCheck_${BUILD_NUMBER}"),
-//              string(name: 'FUNC_VALIDATION', value: 'yes'),
-//              string(name: 'AVG_RT_VALIDATION', value: '0')
-//            ]
-//        }
-//      }
-//      stage('Performance Check Staging') {
-//        steps {
-//          build job: "${env.ORG}/jmeter-as-container/master", 
-//            parameters: [
-//              string(name: 'BUILD_JMETER', value: 'no'), 
-//              string(name: 'SCRIPT_NAME', value: 'orders_basic.jmx'), 
-//              string(name: 'SERVER_URL', value: "${env.APP_NAME}.jx-staging.35.233.18.9.nip.io"),
-//              string(name: 'SERVER_PORT', value: '80'),
-//              string(name: 'CHECK_PATH', value: '/health'),
-//              string(name: 'VUCount', value: '10'),
-//              string(name: 'LoopCount', value: '250'),
-//              string(name: 'ThinkTime', value: '250'),
-//              string(name: 'DT_LTN', value: "PerfCheck_${BUILD_NUMBER}"),
-//              string(name: 'FUNC_VALIDATION', value: 'no'),
-//              string(name: 'AVG_RT_VALIDATION', value: '250')
-//            ]
-//        }
-//      }
     }
-    post {
-        always {
-            cleanWs()
+    stage('Docker build') {
+      when {
+        expression {
+          return env.BRANCH_NAME ==~ 'release/.*' || env.BRANCH_NAME ==~'master'
         }
-        failure {
-            input """Pipeline failed. 
-We will keep the build pod around to help you diagnose any failures. 
+      }
+      steps {
+        container('docker') {
+          echo "branch_name=${env.BRANCH_NAME}"
 
-Select Proceed or Abort to terminate the build pod"""
+          sh "docker build -t ${env.TAG_DEV} ."
         }
+      }
+    }
+    stage('Docker push to registry'){
+      when {
+        expression {
+          return env.BRANCH_NAME ==~ 'release/.*' || env.BRANCH_NAME ==~'master'
+        }
+      }
+      steps {
+        container('docker') {
+          sh "docker push ${env.TAG_DEV}"
+        }
+      }
+    }
+    stage('Deploy to dev namespace') {
+      when {
+        expression {
+          return env.BRANCH_NAME ==~ 'release/.*' || env.BRANCH_NAME ==~'master'
+        }
+      }
+      steps {
+        container('kubectl') {
+          sh "kubectl -n dev apply -f manifest/orders.yml"
+        }
+      }
+    }
+    stage('Run health check in dev') {
+      when {
+        expression {
+          return env.BRANCH_NAME ==~ 'release/.*' || env.BRANCH_NAME ==~'master'
+        }
+      }
+      steps {
+        sleep 30
+
+        build job: "jmeter-tests",
+          parameters: [
+            string(name: 'SCRIPT_NAME', value: 'basiccheck.jmx'),
+            string(name: 'SERVER_URL', value: "${env.APP_NAME}.dev"),
+            string(name: 'SERVER_PORT', value: '80'),
+            string(name: 'CHECK_PATH', value: '/health'),
+            string(name: 'VUCount', value: '1'),
+            string(name: 'LoopCount', value: '1'),
+            string(name: 'DT_LTN', value: "HealthCheck_${BUILD_NUMBER}"),
+            string(name: 'FUNC_VALIDATION', value: 'yes'),
+            string(name: 'AVG_RT_VALIDATION', value: '0'),
+            string(name: 'RETRY_ON_ERROR', value: 'yes')
+          ]
+      }
+    }
+    stage('Run functional check in dev') {
+      when {
+        expression {
+          return env.BRANCH_NAME ==~ 'release/.*' || env.BRANCH_NAME ==~'master'
+        }
+      }
+      steps {
+        build job: "jmeter-tests",
+          parameters: [
+            string(name: 'SCRIPT_NAME', value: "${env.APP_NAME}_load.jmx"),
+            string(name: 'SERVER_URL', value: "${env.APP_NAME}.dev"),
+            string(name: 'SERVER_PORT', value: '80'),
+            string(name: 'CHECK_PATH', value: '/health'),
+            string(name: 'VUCount', value: '1'),
+            string(name: 'LoopCount', value: '1'),
+            string(name: 'DT_LTN', value: "FuncCheck_${BUILD_NUMBER}"),
+            string(name: 'FUNC_VALIDATION', value: 'yes'),
+            string(name: 'AVG_RT_VALIDATION', value: '0')
+          ]
+      }
+    }
+    stage('Mark artifact for staging namespace') {
+      when {
+        expression {
+          return env.BRANCH_NAME ==~ 'release/.*'
+        }
+      }
+      steps {
+        container('docker'){
+          sh "docker tag ${env.TAG_DEV} ${env.TAG_STAGING}"
+        }
+      }
+    }
+    stage('Deploy to staging') {
+      when {
+        expression {
+          return env.BRANCH_NAME ==~ 'release/.*'
+        }
+      }
+      agent {
+        label 'git'
+      }
+      steps {
+        echo "update sockshop deployment yaml for staging -> github webhook triggers deployment to staging"
+        echo "apply sockshop deployment yaml to staging environment"
+      }
     }
   }
+}
