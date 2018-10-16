@@ -21,10 +21,10 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 1024Mi
+            memory: 2048Mi
           requests:
             cpu: 400m
-            memory: 1024Mi
+            memory: 2048Mi
         ports:
         - containerPort: 8080
         securityContext:
@@ -39,20 +39,16 @@ spec:
         volumeMounts:
         - mountPath: /tmp
           name: tmp-volume
+        probePath: /health
         livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
           initialDelaySeconds: 120
           periodSeconds: 10
-          timeoutSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
         readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 120
           periodSeconds: 10
-          timeoutSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
       volumes:
         - name: tmp-volume
           emptyDir:
