@@ -112,6 +112,7 @@ pipeline {
       steps {
         container('docker'){
           sh "docker tag ${env.TAG_DEV} ${env.TAG_STAGING}"
+          sh "docker push ${env.TAG_STAGING}"
         }
       }
     }
@@ -125,8 +126,7 @@ pipeline {
         label 'git'
       }
       steps {
-        echo "update sockshop deployment yaml for staging -> github webhook triggers deployment to staging"
-        echo "apply sockshop deployment yaml to staging environment"
+        echo "see Jenkins file from carts"
       }
     }
   }
