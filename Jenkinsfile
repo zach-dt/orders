@@ -68,12 +68,10 @@ pipeline {
         echo "waiting for the service to start..."
         sleep 100
 
-        sh "rm -rf test_results"
-        sh "mkdir test_results"
-
         container('jmeter') {
           executeJMeter ( 
-            scriptName: 'jmeter/basiccheck.jmx', 
+            scriptName: 'jmeter/basiccheck.jmx',
+            resultsDir: "HealthCheck_${BUILD_NUMBER}",
             serverUrl: "${env.APP_NAME}.dev", 
             serverPort: 80,
             checkPath: '/health',
@@ -93,12 +91,10 @@ pipeline {
         }
       }
       steps {
-        sh "rm -rf test_results"
-        sh "mkdir test_results"
-
         container('jmeter') {
           executeJMeter ( 
-            scriptName: "jmeter/${env.APP_NAME}_load.jmx", 
+            scriptName: "jmeter/${env.APP_NAME}_load.jmx",
+            resultsDir: "FuncCheck_${BUILD_NUMBER}",
             serverUrl: "${env.APP_NAME}.dev", 
             serverPort: 80,
             checkPath: '/health',
