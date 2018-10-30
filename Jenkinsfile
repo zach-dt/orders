@@ -70,7 +70,7 @@ pipeline {
 
         container('jmeter') {
           executeJMeter ( 
-            scriptName: 'jmeter/basiccheck.jmx',
+            scriptName: "jmeter/${env.APP_NAME}_load.jmx",
             resultsDir: "HealthCheck_${BUILD_NUMBER}",
             serverUrl: "${env.APP_NAME}.dev", 
             serverPort: 80,
