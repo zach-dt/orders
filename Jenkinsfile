@@ -65,12 +65,12 @@ pipeline {
         }
       }
       steps {
-        echo "waiting for the service to start..."
-        sleep 100
+        echo "Waiting for the service to start..."
+        sleep 120
 
         container('jmeter') {
           executeJMeter ( 
-            scriptName: "jmeter/${env.APP_NAME}_load.jmx",
+            scriptName: "jmeter/basiccheck.jmx",
             resultsDir: "HealthCheck_${BUILD_NUMBER}",
             serverUrl: "${env.APP_NAME}.dev", 
             serverPort: 80,
