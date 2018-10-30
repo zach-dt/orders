@@ -1,3 +1,5 @@
+@Library('dynatrace@master') _
+
 pipeline {
   agent {
     label 'maven'
@@ -63,21 +65,25 @@ pipeline {
         }
       }
       steps {
+        echo "waiting for the service to start..."
         sleep 100
 
-        build job: "jmeter-tests",
-          parameters: [
-            string(name: 'SCRIPT_NAME', value: 'basiccheck.jmx'),
-            string(name: 'SERVER_URL', value: "${env.APP_NAME}.dev"),
-            string(name: 'SERVER_PORT', value: '80'),
-            string(name: 'CHECK_PATH', value: '/health'),
-            string(name: 'VUCount', value: '1'),
-            string(name: 'LoopCount', value: '1'),
-            string(name: 'DT_LTN', value: "HealthCheck_${BUILD_NUMBER}"),
-            string(name: 'FUNC_VALIDATION', value: 'yes'),
-            string(name: 'AVG_RT_VALIDATION', value: '0'),
-            string(name: 'RETRY_ON_ERROR', value: 'yes')
-          ]
+        sh "rm -rf test_results"
+        sh "mkdir test_results"
+
+        container('jmeter') {
+          executeJMeter ( 
+            scriptName: 'jmeter/basiccheck.jmx', 
+            serverUrl: "${env.APP_NAME}.dev", 
+            serverPort: 80,
+            checkPath: '/health',
+            vuCount: 1,
+            loopCount: 1,
+            LTN: "HealthCheck_${BUILD_NUMBER}",
+            funcValidation: true,
+            avgRtValidation: 0
+          )
+        }
       }
     }
     stage('Run functional check in dev') {
@@ -87,18 +93,22 @@ pipeline {
         }
       }
       steps {
-        build job: "jmeter-tests",
-          parameters: [
-            string(name: 'SCRIPT_NAME', value: "${env.APP_NAME}_load.jmx"),
-            string(name: 'SERVER_URL', value: "${env.APP_NAME}.dev"),
-            string(name: 'SERVER_PORT', value: '80'),
-            string(name: 'CHECK_PATH', value: '/health'),
-            string(name: 'VUCount', value: '1'),
-            string(name: 'LoopCount', value: '1'),
-            string(name: 'DT_LTN', value: "FuncCheck_${BUILD_NUMBER}"),
-            string(name: 'FUNC_VALIDATION', value: 'yes'),
-            string(name: 'AVG_RT_VALIDATION', value: '0')
-          ]
+        sh "rm -rf test_results"
+        sh "mkdir test_results"
+
+        container('jmeter') {
+          executeJMeter ( 
+            scriptName: "jmeter/${env.APP_NAME}_load.jmx", 
+            serverUrl: "${env.APP_NAME}.dev", 
+            serverPort: 80,
+            checkPath: '/health',
+            vuCount: 1,
+            loopCount: 1,
+            LTN: "FuncCheck_${BUILD_NUMBER}",
+            funcValidation: true,
+            avgRtValidation: 0
+          )
+        }
       }
     }
     stage('Mark artifact for staging namespace') {
