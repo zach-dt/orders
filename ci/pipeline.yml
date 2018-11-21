@@ -55,7 +55,7 @@ resources:
   type: dynatrace-resource
   source:
     apitoken: ((dt_api_token))
-    tenanthost: ((dt_tenant_url))
+    tenanthost: ((dt_tenant_host))
 
 - name: orders-release-bucket
   type: s3
@@ -120,7 +120,7 @@ jobs:
     file: git-pipeline/deploy/cloud-foundry/ci/tasks/init-dynatrace-task.yml
     params: 
       apitoken: ((dt_api_token))
-      tenanthost: ((dt_tenant_url))
+      tenanthost: ((dt_tenant_host))
       APP_REPO: git-orders
 
 ## ORDERS
@@ -311,7 +311,7 @@ jobs:
 #     params: 
 #       monspecserviceenvironment: orders/Production-$NEXT_APP_COLOR
 #       apitoken: ((dt_api_token))
-#       tenanthost: ((dt_tenant_url))
+#       tenanthost: ((dt_tenant_host))
 #       APP_REPO: git-orders            
 
 # - name: validate-orders-load-test
@@ -336,7 +336,7 @@ jobs:
 #     params: 
 #       monspeccomparison: orders/Production-$NEXT_APP_COLOR\ToProduction-$CURRENT_APP_COLOR\Last5m
 #       apitoken: ((dt_api_token))
-#       tenanthost: ((dt_tenant_url))
+#       tenanthost: ((dt_tenant_host))
 #       APP_REPO: git-orders   
 
 - name: deploy-to-production
@@ -462,7 +462,7 @@ jobs:
     params: 
       monspecserviceenvironment: orders/Dev
       apitoken: ((dt_api_token))
-      tenanthost: ((dt_tenant_url))
+      tenanthost: ((dt_tenant_host))
       APP_REPO: git-orders 
 
 - name: validate-performance-check
@@ -480,5 +480,5 @@ jobs:
     params: 
       monspeccomparison: orders/DevToDevLastHour
       apitoken: ((dt_api_token))
-      tenanthost: ((dt_tenant_url))
+      tenanthost: ((dt_tenant_host))
       APP_REPO: git-orders 
