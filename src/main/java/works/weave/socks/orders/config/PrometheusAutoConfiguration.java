@@ -1,5 +1,6 @@
 package works.weave.socks.orders.config;
 
+/*
 import io.prometheus.client.exporter.MetricsServlet;
 import io.prometheus.client.hotspot.DefaultExports;
 import io.prometheus.client.spring.boot.SpringBootMetricsCollector;
@@ -33,3 +34,4 @@ class PrometheusAutoConfiguration {
         return new ServletRegistrationBean(new MetricsServlet(), metricsPath);
     }
 }
+*/

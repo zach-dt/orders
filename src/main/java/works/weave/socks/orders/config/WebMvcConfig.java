@@ -3,10 +3,11 @@ package works.weave.socks.orders.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.handler.MappedInterceptor;
-import works.weave.socks.orders.middleware.HTTPMonitoringInterceptor;
+//import works.weave.socks.orders.middleware.HTTPMonitoringInterceptor;
 
 @Configuration
 public class WebMvcConfig {
+    /*
     @Bean
     HTTPMonitoringInterceptor httpMonitoringInterceptor() {
         return new HTTPMonitoringInterceptor();
@@ -16,4 +17,5 @@ public class WebMvcConfig {
     public MappedInterceptor myMappedInterceptor(HTTPMonitoringInterceptor interceptor) {
         return new MappedInterceptor(new String[]{"/**"}, interceptor);
     }
+    */
 }
